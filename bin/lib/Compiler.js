@@ -4,6 +4,11 @@ const babylon = require('babylon')
 const traverse = require('@babel/traverse').default
 const generator = require('@babel/generator').default
 const types = require('@babel/types')
+const ejs = require('ejs')
+
+const {
+  isObject
+} = require('./util')
 
 
 /**
@@ -95,7 +100,35 @@ class Compiler {
   }
 
   emitFile() {
+    // 将缓存的数据投射到模版文件,并输出文件
+    if (this.config.output && !isObject(this.config.output)) {
+      throw new Error('output is not object')
+    }
+    let output = this.config.output
+    if (!Reflect.has(output, 'path')) {
+      throw new Error('path 是必填项')
+    }
+    if (!Reflect.has(output, 'filename')) {
+      output['filename'] = 'app.js'
+    }
+    
+    // 输出的路径
+    const outPath = path.join(output.path, output.filename)
+    console.log(outPath)
+    const template = this.getSource(path.resolve(__dirname, '..', 'index.ejs'))
+    
+    // ejs 渲染
+    const code = ejs.render(template, {entryId: this.entryId, modules: this.modules})
+    this.assets = {}
+    this.assets[outPath] = code
 
+    const dirPath = path.resolve(this.root, output.path)
+    fs.exists(dirPath, exists => {
+      if (!exists) {
+        fs.mkdirSync(dirPath)
+      }
+      fs.writeFileSync(outPath, this.assets[outPath])  
+    })
   }
 }
 
