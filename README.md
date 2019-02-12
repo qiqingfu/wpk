@@ -1,10 +1,14 @@
 ## wpk 简易的 webpack 模块打包 
 
-## test 
+ - 模块引用解析
+
+## Test 
 
 ```
 	git clone 
-	npm init
+	npm install
 	cd bin 
 	node webpack-cli
 ``` 
+
+## Realization
