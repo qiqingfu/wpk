@@ -36,15 +36,32 @@ class Compiler {
     this.emitFile()
   }
 
-  // 获取源码
+  // 根据相对路径, fs读取文件的源代码
   getSource(modulePath) {
-    return fs.readFileSync(modulePath, 'utf-8')
+    let source = fs.readFileSync(modulePath, 'utf-8')
+    
+    // 使用 loader 转换源码
+    const module = this.config.module || null
+    if (module && isObject(module)) {
+      if (Reflect.has(module, 'rules')) {
+        let rules = module.rules
+        for (let rule of rules) {
+          let {test, use:usesLoaderPath} = rule
+          if (test.test(modulePath)) {
+            usesLoaderPath = usesLoaderPath.reverse()
+            usesLoaderPath.forEach(loaderPath => {
+              let loader = require(loaderPath)
+              source = loader(source)
+            })
+          }
+        }
+      }
+    }
+    return source
   }
 
   // 解析 source 源码
   parse(source, parentPath) {
-    // console.log(source)
-    // console.log(parentPath)
     const ast = babylon.parse(source)
     const dependencies = []  // 保存依赖的数组
     const that = this
