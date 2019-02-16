@@ -1,4 +1,5 @@
 const path = require('path')
+const TextWebpackPlugin = require('./plugins/test-webpack-plugin')
 
 module.exports = {
   entry: './src/index.js',
@@ -16,5 +17,8 @@ module.exports = {
         ]
       }
     ]
-  }
+  },
+  plugins: [
+    new TextWebpackPlugin()
+  ]
 }

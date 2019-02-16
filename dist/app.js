@@ -47,4 +47,5 @@ module.exports = 'a' + b;`);
 style.innerHTML = "body {\\n  background-color: #858585;\\n}\\n";
 document.head.appendChild(style);`);
   }),
+  
  });

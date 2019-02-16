@@ -5,6 +5,11 @@ const traverse = require('@babel/traverse').default
 const generator = require('@babel/generator').default
 const types = require('@babel/types')
 const ejs = require('ejs')
+const {
+  SyncHook,
+  SyncBailHook,
+  AsyncSeriesHook
+} = require('tapable')
 
 const {
   isObject
@@ -26,7 +31,49 @@ class Compiler {
     // 需要保存所有的模块依赖
     this.modules = {},
     this.entry = config.entry,  
-    this.root = path.resolve(process.cwd(), '..')  //当前工作目录
+    this.root = path.resolve(process.cwd(), '..'),  //当前工作目录
+    this.compilation = {name: '编译器对象'}
+    this.hooks = {
+      entryOption: new SyncBailHook('entryOption'),
+      afterPlugins: new SyncHook('afterPlugins'),
+      afterResolvers: new SyncHook('afterResolvers'),
+      beforeRun: new AsyncSeriesHook(['beforeRun']),
+      run: new AsyncSeriesHook(['run']),
+      beforeCompile: new AsyncSeriesHook(['beforeCompile']),
+      compile: new SyncHook('compile'),
+      afterCompile: new AsyncSeriesHook(['afterCompile']),
+      emit: new AsyncSeriesHook(['emit']), // 在输出打包结果触发的钩子
+      afterEmit: new AsyncSeriesHook(['afterEmit']),
+      done: new AsyncSeriesHook(['done']), //  编译完成触发的钩子
+      failed: new SyncHook('failed'), // 编译失败
+    },
+    this.plugins = config.plugins
+    
+    /**
+     * 在 安装插件时, Webpack编译器会调用插件实例的 apply方法一次
+     * 并且将 Webpack所有的环境配置信息传递作为参数传递给插件 
+     * 所以, 在编写一个插件类时, 原型对象上一个要定义 apply方法
+     */
+    if (Array.isArray(this.plugins) && this.plugins.length > 0) {
+      let plugins = this.plugins
+      
+      plugins.forEach(plugin => {
+        // Is it a plugin available?
+        if (
+          isObject(plugin) &&
+          Reflect.has(Reflect.getPrototypeOf(plugin), 'apply')
+        ) {
+          plugin.apply(this)
+        }
+        else {
+          console.log(`Error: 
+          ${ plugin.__proto__.constructor } **** Not an object or no definition apply ****`)
+        }
+      })
+    } else {
+      // no plugins
+      // console.log('no plugins..')
+    }
   }
 
   run() {
@@ -131,7 +178,6 @@ class Compiler {
     
     // 输出的路径
     const outPath = path.join(output.path, output.filename)
-    console.log(outPath)
     const template = this.getSource(path.resolve(__dirname, '..', 'index.ejs'))
     
     // ejs 渲染
@@ -144,6 +190,14 @@ class Compiler {
       if (!exists) {
         fs.mkdirSync(dirPath)
       }
+
+      // 注册钩子 
+      console.time('emitTime')
+      this.hooks.emit.callAsync(this.compilation, () => {
+        console.log('插件执行结束')
+        console.timeEnd('emitTime')
+      })
+
       fs.writeFileSync(outPath, this.assets[outPath])  
     })
   }
